@@ -1,239 +1,101 @@
-"""Core game engine module for the Snake game.
-
-This module provides the fundamental game logic including:
-- Direction enum for snake movement
-- Snake class for managing snake position, direction, and growth
-- GameEngine class for handling game loop, collision detection, and food consumption
-"""
-
 from enum import Enum
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Set
+from game_state import GameState
 
 
 class Direction(Enum):
-    """Direction enum representing the four possible movement directions."""
     UP = (0, -1)
     DOWN = (0, 1)
     LEFT = (-1, 0)
     RIGHT = (1, 0)
 
-    def __init__(self, dx: int, dy: int):
-        self.dx = dx
-        self.dy = dy
-
-    def opposite(self) -> 'Direction':
-        """Return the opposite direction."""
-        opposite_map = {
-            Direction.UP: Direction.DOWN,
-            Direction.DOWN: Direction.UP,
-            Direction.LEFT: Direction.RIGHT,
-            Direction.RIGHT: Direction.LEFT
-        }
-        return opposite_map[self]
-
 
 class Snake:
-    """Snake class managing snake position, direction, and growth.
-
-    The snake is represented as a list of coordinates [(x, y), ...]
-    where the head is at index 0.
-    """
-
-    def __init__(self, initial_position: Tuple[int, int]):
-        """Initialize the snake with a starting position.
-
-        Args:
-            initial_position: The (x, y) coordinate for the snake's head.
-        """
-        self._body: List[Tuple[int, int]] = [initial_position]
-        self._direction: Direction = Direction.RIGHT
-        self._next_direction: Direction = Direction.RIGHT
-        self._grow_pending: bool = False
-
-    @property
-    def body(self) -> List[Tuple[int, int]]:
-        """Return a copy of the snake's body coordinates."""
-        return self._body.copy()
+    def __init__(self, start_position: Tuple[int, int] = (10, 10)):
+        self.positions: List[Tuple[int, int]] = [start_position]
+        self.direction = Direction.RIGHT
+        self.grow_pending = False
 
     @property
     def head(self) -> Tuple[int, int]:
-        """Return the snake's head position."""
-        return self._body[0]
+        return self.positions[0]
 
-    @property
-    def direction(self) -> Direction:
-        """Return the current movement direction."""
-        return self._direction
+    def move(self) -> None:
+        head = self.head
+        dx, dy = self.direction.value
+        new_head = (head[0] + dx, head[1] + dy)
+        self.positions.insert(0, new_head)
+        if not self.grow_pending:
+            self.positions.pop()
+        self.grow_pending = False
 
-    def change_direction(self, new_direction: Direction) -> bool:
-        """Change the snake's direction.
-
-        Prevents 180-degree turns (reversing direction).
-
-        Args:
-            new_direction: The desired direction to move.
-
-        Returns:
-            True if direction was changed, False if ignored.
-        """
-        if new_direction != self._direction.opposite():
-            self._next_direction = new_direction
-            return True
-        return False
-
-    def move(self) -> bool:
-        """Move the snake one step in the current direction.
-
-        Returns:
-            True if move was successful, False if collision detected.
-        """
-        self._direction = self._next_direction
-        dx, dy = self._direction.dx, self._direction.dy
-        head_x, head_y = self._body[0]
-        new_head = (head_x + dx, head_y + dy)
-
-        if self._check_collision_with_self(new_head):
-            return False
-
-        self._body.insert(0, new_head)
-
-        if not self._grow_pending:
-            self._body.pop()
-        else:
-            self._grow_pending = False
-
-        return True
+    def change_direction(self, new_direction: Direction) -> None:
+        opposite = {
+            Direction.UP: Direction.DOWN,
+            Direction.DOWN: Direction.UP,
+            Direction.LEFT: Direction.RIGHT,
+            Direction.RIGHT: Direction.LEFT,
+        }
+        if new_direction != opposite.get(self.direction):
+            self.direction = new_direction
 
     def grow(self) -> None:
-        """Mark the snake to grow on the next move."""
-        self._grow_pending = True
+        self.grow_pending = True
 
-    def _check_collision_with_self(self, position: Tuple[int, int]) -> bool:
-        """Check if a position collides with the snake's body.
+    def check_self_collision(self) -> bool:
+        return self.head in self.positions[1:]
 
-        Args:
-            position: The (x, y) position to check.
-
-        Returns:
-            True if position collides with body, False otherwise.
-        """
-        return position in self._body[1:]
+    def get_positions(self) -> Set[Tuple[int, int]]:
+        return set(self.positions)
 
 
 class GameEngine:
-    """Game engine class handling game loop, collision detection, and food consumption."""
-
-    def __init__(self, board_width: int = 20, board_height: int = 20):
-        """Initialize the game engine.
-
-        Args:
-            board_width: Width of the game board.
-            board_height: Height of the game board.
-        """
-        self._board_width = board_width
-        self._board_height = board_height
-        self._snake = Snake((board_width // 2, board_height // 2))
-        self._food: Optional[Tuple[int, int]] = None
-        self._game_over: bool = False
-        self._score: int = 0
-        self._food_spawned: bool = False
-
-    @property
-    def snake(self) -> Snake:
-        """Return the snake instance."""
-        return self._snake
-
-    @property
-    def food(self) -> Optional[Tuple[int, int]]:
-        """Return the current food position."""
-        return self._food
-
-    @property
-    def score(self) -> int:
-        """Return the current score."""
-        return self._score
-
-    @property
-    def game_over(self) -> bool:
-        """Return True if the game has ended."""
-        return self._game_over
-
-    @property
-    def board_width(self) -> int:
-        """Return the board width."""
-        return self._board_width
-
-    @property
-    def board_height(self) -> int:
-        """Return the board height."""
-        return self._board_height
+    def __init__(self, game_state: GameState, board_size: Tuple[int, int] = (20, 20)):
+        self.game_state = game_state
+        self.board_size = board_size
+        self.snake = Snake((board_size[0] // 2, board_size[1] // 2))
+        self.game_over = False
+        self.score = 0
+        self.game_started = False
 
     def start_game(self) -> None:
-        """Start a new game."""
-        self._snake = Snake((self._board_width // 2, self._board_height // 2))
-        self._food = None
-        self._game_over = False
-        self._score = 0
-        self._food_spawned = False
-        self._spawn_food()
+        self.game_state.spawn_food(self.snake.get_positions(), self.board_size)
+        self.game_started = True
+        self.game_over = False
 
-    def update(self) -> bool:
-        """Update the game state.
+    def update(self) -> None:
+        if not self.game_started or self.game_over:
+            return
+        self.snake.move()
+        self._check_collisions()
+        self._check_food()
 
-        Moves the snake, checks for collisions, and handles food consumption.
+    def _check_collisions(self) -> None:
+        head = self.snake.head
+        x, y = head
+        if x < 0 or x >= self.board_size[0] or y < 0 or y >= self.board_size[1]:
+            self.game_over = True
+        elif self.snake.check_self_collision():
+            self.game_over = True
 
-        Returns:
-            True if game continues, False if game over.
-        """
-        if self._game_over:
-            return False
+    def _check_food(self) -> None:
+        if self.snake.head == self.game_state.food_position:
+            self.snake.grow()
+            self.game_state.update_score(10)
+            self.game_state.spawn_food(self.snake.get_positions(), self.board_size)
 
-        if not self._snake.move():
-            self._game_over = True
-            return False
+    def is_game_over(self) -> bool:
+        return self.game_over
 
-        if self._check_collision_with_wall(self._snake.head):
-            self._game_over = True
-            return False
+    def get_score(self) -> int:
+        return self.game_state.score
 
-        if self._snake.head == self._food:
-            self._snake.grow()
-            self._score += 1
-            self._spawn_food()
+    def get_snake_positions(self) -> List[Tuple[int, int]]:
+        return self.snake.positions
 
-        return True
+    def get_food_position(self) -> Tuple[int, int]:
+        return self.game_state.food_position
 
-    def change_direction(self, direction: Direction) -> bool:
-        """Change the snake's direction.
-
-        Args:
-            direction: The new direction to move.
-
-        Returns:
-            True if direction was changed, False otherwise.
-        """
-        return self._snake.change_direction(direction)
-
-    def _check_collision_with_wall(self, position: Tuple[int, int]) -> bool:
-        """Check if a position collides with the board walls.
-
-        Args:
-            position: The (x, y) position to check.
-
-        Returns:
-            True if position is outside board bounds, False otherwise.
-        """
-        x, y = position
-        return x < 0 or x >= self._board_width or y < 0 or y >= self._board_height
-
-    def _spawn_food(self) -> None:
-        """Spawn food at a random position not occupied by the snake."""
-        while True:
-            import random
-            x = random.randint(0, self._board_width - 1)
-            y = random.randint(0, self._board_height - 1)
-            position = (x, y)
-
-            if position not in self._snake.body:
-                self._food = position
-                break
+    def change_direction(self, direction: Direction) -> None:
+        if self.game_started and not self.game_over:
+            self.snake.change_direction(direction)

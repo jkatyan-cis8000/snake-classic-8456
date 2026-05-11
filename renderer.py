@@ -1,44 +1,44 @@
+import os
+from typing import List, Tuple
+
+
 class Renderer:
-    """Renders the game state to the console using ASCII characters."""
+    def __init__(self):
+        self._clear_cmd = "cls" if os.name == "nt" else "clear"
 
-    def __init__(self, board_size: tuple[int, int] = (20, 20)):
-        self.board_size = board_size
+    def clear_screen(self) -> None:
+        os.system(self._clear_cmd)
 
-    def render_board(self, snake_positions: set[tuple[int, int]], food_position: tuple[int, int]) -> None:
-        """Draw the game grid with snake and food."""
-        board_width, board_height = self.board_size
+    def render_board(self, snake_positions: List[Tuple[int, int]], food_position: Tuple[int, int], board_size: Tuple[int, int] = (20, 20)) -> None:
         snake_set = set(snake_positions)
-
-        print("+" + "-" * board_width + "+")
-
-        for y in range(board_height):
-            row = "|"
-            for x in range(board_width):
+        for y in range(board_size[1]):
+            row = ""
+            for x in range(board_size[0]):
                 position = (x, y)
-                if position in snake_set:
-                    if position == snake_positions[0]:
-                        row += "@"  # Snake head
-                    else:
-                        row += "#"  # Snake body
-                elif position == food_position:
-                    row += "O"  # Food
+                if position == food_position:
+                    row += "F"
+                elif position in snake_set:
+                    row += "O"
                 else:
-                    row += "."  # Empty
-            row += "|"
+                    row += "."
             print(row)
 
-        print("+" + "-" * board_width + "+")
-
     def render_score(self, score: int) -> None:
-        """Display current score."""
         print(f"Score: {score}")
 
-    def render_game_over(self, score: int) -> None:
-        """Display final score and restart option."""
-        print("\n" + "=" * 30)
-        print("       GAME OVER")
-        print("=" * 30)
-        print(f"   Final Score: {score}")
-        print("=" * 30)
-        print("Press any key to restart...")
-        print()
+    def render_game_over(self, final_score: int) -> None:
+        print("\n" + "=" * 40)
+        print("GAME OVER")
+        print(f"Final Score: {final_score}")
+        print("=" * 40)
+        print("Press any key to restart or ESC to quit...")
+
+    def render_difficulty_menu(self) -> None:
+        print("\n" + "=" * 40)
+        print("SNAKE GAME - Difficulty Selection")
+        print("=" * 40)
+        print("1. Easy (150ms)")
+        print("2. Medium (100ms)")
+        print("3. Hard (75ms)")
+        print("4. Expert (50ms)")
+        print("Press 1-4 to select difficulty:")
